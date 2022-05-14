@@ -15,6 +15,16 @@ public class User {
 	public User(int uId) {
 		UId = uId;
 	}
+
+	public override int GetHashCode() {
+		return UId.GetHashCode();
+	}
+
+	public override bool Equals(object? obj) {
+		if (obj is User user)
+			return user.UId == UId;
+		return false;
+	}
 }
 
 public class Order {
