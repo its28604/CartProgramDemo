@@ -1,8 +1,9 @@
 using CartProgram;
+using Xunit;
 
-namespace CartProgramTests;
+namespace CartProgram.UnitTests;
 
-public class UnitTest1
+public class CartProgramTests
 {
     private readonly User User_A = new User(9527);
 
