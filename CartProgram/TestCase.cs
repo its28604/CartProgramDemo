@@ -35,7 +35,7 @@ public static class TestCase {
 		db.Insert(User.Inventory, SimpleDB.APPLE_ID, 5);
 		db.Insert(User.Inventory, SimpleDB.MANGO_ID, 5);
 		db.Insert(user, SimpleDB.COUPON_75_OFF_ID, 5);
-		db.Insert(user, SimpleDB.COUPON_100_DISCOUNT_ID, 5);
+		db.Insert(user, SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, 5);
 
 		Cart cart = new Cart();
 		cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
@@ -49,8 +49,8 @@ public static class TestCase {
 		cart.AddItem(new Product(SimpleDB.MANGO_ID, db));
 		cart.AddItem(new Product(SimpleDB.MANGO_ID, db));
 		cart.AddItem(new CouponNPercentOff(SimpleDB.COUPON_75_OFF_ID, db));
-		cart.AddItem(new CouponNDiscount(SimpleDB.COUPON_100_DISCOUNT_ID, db));
-		cart.AddItem(new CouponNDiscount(SimpleDB.COUPON_100_DISCOUNT_ID, db));
+		cart.AddItem(new CouponDiscountWhenAbove(SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, db));
+		cart.AddItem(new CouponDiscountWhenAbove(SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, db));
 
 		API.ShowInventory(user, db);
 
@@ -72,7 +72,7 @@ public static class TestCase {
 		db.Insert(User.Inventory, SimpleDB.APPLE_ID, 5);
 		db.Insert(User.Inventory, SimpleDB.MANGO_ID, 5);
 		db.Insert(user, SimpleDB.COUPON_75_OFF_ID, 5);
-		db.Insert(user, SimpleDB.COUPON_100_DISCOUNT_ID, 5);
+		db.Insert(user, SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, 5);
 
 		Cart cart = new Cart();
 		cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
@@ -86,8 +86,8 @@ public static class TestCase {
 		cart.AddItem(new Product(SimpleDB.MANGO_ID, db));
 		cart.AddItem(new Product(SimpleDB.MANGO_ID, db));
 		cart.AddItem(new CouponNPercentOff(SimpleDB.COUPON_75_OFF_ID, db));
-		cart.AddItem(new Product(SimpleDB.COUPON_100_DISCOUNT_ID, db));
-		cart.AddItem(new Product(SimpleDB.COUPON_100_DISCOUNT_ID, db));
+		cart.AddItem(new Product(SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, db));
+		cart.AddItem(new Product(SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, db));
 
 		API.ShowInventory(user, db);
 

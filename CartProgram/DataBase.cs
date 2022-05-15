@@ -13,39 +13,40 @@ public class SimpleDB : IDataBase {
 	public const int APPLE_ID = 2;
 	public const int MANGO_ID = 3;
 	public const int COUPON_75_OFF_ID = 4;
-	public const int COUPON_100_DISCOUNT_ID = 5;
+	public const int COUPON_ABOVE_1000_DISCOUNT_100_ID = 5;
 
 	public const int PRODUCT_PRIORITY = -1;
 
 	public static readonly int[] InventoryProducts = new int[] { TISSUE_ID, APPLE_ID, MANGO_ID, };
-	public static readonly int[] UserCoupons = new int[] { COUPON_75_OFF_ID, COUPON_100_DISCOUNT_ID };
-	
-	private List<(User, int, int)> records = new();
+	public static readonly int[] UserCoupons = new int[] { COUPON_75_OFF_ID, COUPON_ABOVE_1000_DISCOUNT_100_ID };
+
+	private int pk = 0;
+	private Dictionary<int, (User, int, int)> records = new();
 	private Dictionary<int, (string, string, string, int, int)> product_table = new() {
 		[TISSUE_ID] = ("柔芙輕巧包抽取式衛生紙", "120抽x20包x4袋", "【箱購】", 580, PRODUCT_PRIORITY),
 		[APPLE_ID] = ("智利富士蘋果", "135g", "", 14, PRODUCT_PRIORITY),
 		[MANGO_ID] = ("頂級愛文芒果禮盒 ", "(約1.6kg/盒)", "【預購】", 468, PRODUCT_PRIORITY),
 		[COUPON_75_OFF_ID] = ("消費75折", "不限金額", "【折價券】", 0, 1),
-		[COUPON_100_DISCOUNT_ID] = ("折價100元", "不限金額", "【折價券】", 0, 2),
+		[COUPON_ABOVE_1000_DISCOUNT_100_ID] = ("折價100元", "消費滿1000元", "【折價券】", 0, 2),
 	};
 	private Dictionary<int, object> coupon_info = new() {
 		[COUPON_75_OFF_ID] = 75,
-		[COUPON_100_DISCOUNT_ID] = 100,
+		[COUPON_ABOVE_1000_DISCOUNT_100_ID] = (100, 1000),
 	};
 
 	public void Insert(User user, int pId, int amount) {
-		records.Add((user, pId, amount));
+		records.Add(++pk, (user, pId, amount));
 	}
 
 	public void Delete(User user, int pId, int amount) {
-		var remaining = records.Where(r => r.Item1 == user && r.Item2 == pId).Select(r => r.Item3).Sum();
+		var remaining = records.Values.Where(r => r.Item1 == user && r.Item2 == pId).Select(r => r.Item3).Sum();
 		if (remaining - amount < 0)
 			throw new InvalidOperationException();
-		records.Add((user, pId, -amount));
+		records.Add(++pk, (user, pId, -amount));
 	}
 
 	public int SearchCount(User user, int pId) {
-		return records.Where(r => r.Item1 == user && r.Item2 == pId).Select(r => r.Item3).Sum();
+		return records.Values.Where(r => r.Item1 == user && r.Item2 == pId).Select(r => r.Item3).Sum();
 	}
 
 	public (string, string, string, int, int) GetMetadata(int pId) {

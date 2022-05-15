@@ -105,7 +105,7 @@ public class CouponNPercentOff : ISellable
     }
 }
 
-public class CouponNDiscount : ISellable
+public class CouponDiscountWhenAbove : ISellable
 {
     public int PId { get; set; }
     public string Name { get; set; }
@@ -115,13 +115,14 @@ public class CouponNDiscount : ISellable
     public int Priority { get; set; }
 
     private int discount;
+    private int abovePrice;
 
-    public CouponNDiscount(int pId, IDataBase db)
+    public CouponDiscountWhenAbove(int pId, IDataBase db)
     {
         PId = pId;
         (Name, Description, Tag, Price, Priority) = db.GetMetadata(PId);
         if (db.GetCouponInfo(pId) is int p)
-            discount = p;
+            (discount, abovePrice) = p;
         else
             throw new ArgumentNullException(nameof(discount));
     }

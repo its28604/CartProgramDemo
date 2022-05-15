@@ -59,12 +59,12 @@ public class CartProgramTests
         // Arrange
         IDataBase db = new SimpleDB();
         db.Insert(User.Inventory, SimpleDB.TISSUE_ID, 5);
-        db.Insert(User_A, SimpleDB.COUPON_100_DISCOUNT_ID, 1);
+        db.Insert(User_A, SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, 1);
 
         Cart cart = new Cart();
         cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
         cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
-        cart.AddItem(new CouponNDiscount(SimpleDB.COUPON_100_DISCOUNT_ID, db));
+        cart.AddItem(new CouponDiscountWhenAbove(SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, db));
 
         // Act
         var order = API.PlaceOrder(User_A, cart, db);
