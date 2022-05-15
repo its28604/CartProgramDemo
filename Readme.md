@@ -30,6 +30,44 @@
 
 具體實作內容如下：
 
+首先是最重要的 `API.PlaceOrder`
+```C#
+
+    public static Order PlaceOrder(User user, Cart cart, IDataBase db) {
+        Order order = new Order();
+        order.State = OrderState.Success;
+
+        bool success = true;
+        try {
+            foreach (var item in cart.Items.OrderBy(item => item.Priority)) {
+                if (item.CanBuy(user, cart, db)) {
+                    item.Buy(user, cart, db);
+                    order.AddItem(item);
+                }
+                else {
+                    success = false;
+                    break;
+                }
+            }
+        }
+        catch (InvalidOperationException) {
+            success = false;
+        }
+        catch (ArgumentNullException) {
+            success = false;
+        }
+
+        if (!success) {
+            foreach (var item in order.Items) {
+                item.Discard(user, cart, db);
+            }
+            order.State = OrderState.Failure;
+        }
+        return order;
+    }
+
+```
+
 `ISellable` 定義
 ```C#
 
@@ -88,7 +126,9 @@ public class Product : ISellable {
 
 ```
 
-折價券(打折) `CouponNPercentOff` 實作
+對於 **存貨** 的處理，我的作法是將其視為一樣是一個 `User` ，一樣對資料庫尋找結果。
+
+再來是折價券(打折) `CouponNPercentOff` 實作
 ```C#
 
 public class CouponNPercentOff : ISellable {
@@ -136,6 +176,8 @@ public class CouponNPercentOff : ISellable {
 }
 
 ```
+
+折價券就變成是對 `user` 本身做持有數量的檢查，但邏輯一樣，皆是透過 `IDataBase` 去取得所需資料。
 
 資料庫介面 `IDataBase`
 ```C#
@@ -299,5 +341,165 @@ public class CouponRebateEverySpend : ISellable, IRebateEverySpend {
 }
 
 ```
+---
+
+最後，來看看實際呼叫案例：
+```C#
+
+User user = new User(9527);
+
+IDataBase db = new SimpleDB();
+db.Insert(User.Inventory, SimpleDB.TISSUE_ID, 5);
+db.Insert(User.Inventory, SimpleDB.APPLE_ID, 5);
+db.Insert(User.Inventory, SimpleDB.MANGO_ID, 5);
+db.Insert(user, SimpleDB.COUPON_75_OFF_ID, 5);
+db.Insert(user, SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, 5);
+
+Cart cart = new Cart();
+cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
+cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
+cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
+cart.AddItem(new Product(SimpleDB.APPLE_ID, db));
+cart.AddItem(new Product(SimpleDB.APPLE_ID, db));
+cart.AddItem(new Product(SimpleDB.MANGO_ID, db));
+cart.AddItem(new Product(SimpleDB.MANGO_ID, db));
+cart.AddItem(new Product(SimpleDB.MANGO_ID, db));
+cart.AddItem(new Product(SimpleDB.MANGO_ID, db));
+cart.AddItem(new Product(SimpleDB.MANGO_ID, db));
+cart.AddItem(new CouponNPercentOff(SimpleDB.COUPON_75_OFF_ID, db));
+cart.AddItem(new CouponRebateEverySpend(SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, db));
+cart.AddItem(new CouponRebateEverySpend(SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, db));
+
+API.ShowInventory(user, db);
+
+API.ShowCart(user, cart, db);
+
+var order = API.PlaceOrder(user, cart, db);
+
+API.ShowOrder(user, order, db);
+
+API.ShowInventory(user, db);
+
+```
+
+輸出如下：
+```
+|　　　　　　使用者 |　　　　　　　　　　　名稱 |        數量 |
+|            庫存 |　　柔芙輕巧包抽取式衛生紙 |          5 |
+|            庫存 |　　　　　　　智利富士蘋果 |          5 |
+|            庫存 |　　　　　頂級愛文芒果禮盒 |          5 |
+|　 　UId: (9527) |               消費75折 |          5 |
+|　　 UId: (9527) | 　　　        折價100元 |          5 |
+
+--------------------------------------
+
+使用者(UId:9527) 購物車內容物如下：
+
+【箱購】 柔芙輕巧包抽取式衛生紙 120抽x20包x4袋 NT$580.00
+【箱購】 柔芙輕巧包抽取式衛生紙 120抽x20包x4袋 NT$580.00
+【箱購】 柔芙輕巧包抽取式衛生紙 120抽x20包x4袋 NT$580.00
+ 智利富士蘋果 135g NT$14.00
+ 智利富士蘋果 135g NT$14.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【折價券】 消費75折 不限金額 NT$0.00
+【折價券】 折價100元 消費滿1000元 NT$0.00
+【折價券】 折價100元 消費滿1000元 NT$0.00
+總金額：4108
+
+======================================
+
+
+商品 柔芙輕巧包抽取式衛生紙 x 1 件，存貨數量： 5
+商品 柔芙輕巧包抽取式衛生紙 x 1 件，購買成功
+
+商品 柔芙輕巧包抽取式衛生紙 x 1 件，存貨數量： 4
+商品 柔芙輕巧包抽取式衛生紙 x 1 件，購買成功
+
+商品 柔芙輕巧包抽取式衛生紙 x 1 件，存貨數量： 3
+商品 柔芙輕巧包抽取式衛生紙 x 1 件，購買成功
+
+商品 智利富士蘋果 x 1 件，存貨數量： 5
+商品 智利富士蘋果 x 1 件，購買成功
+
+商品 智利富士蘋果 x 1 件，存貨數量： 4
+商品 智利富士蘋果 x 1 件，購買成功
+
+商品 頂級愛文芒果禮盒  x 1 件，存貨數量： 5
+商品 頂級愛文芒果禮盒  x 1 件，購買成功
+
+商品 頂級愛文芒果禮盒  x 1 件，存貨數量： 4
+商品 頂級愛文芒果禮盒  x 1 件，購買成功
+
+商品 頂級愛文芒果禮盒  x 1 件，存貨數量： 3
+商品 頂級愛文芒果禮盒  x 1 件，購買成功
+
+商品 頂級愛文芒果禮盒  x 1 件，存貨數量： 2
+商品 頂級愛文芒果禮盒  x 1 件，購買成功
+
+商品 頂級愛文芒果禮盒  x 1 件，存貨數量： 1
+商品 頂級愛文芒果禮盒  x 1 件，購買成功
+
+折價券 折價100元 x 1 張，使用者 (UId: 9527) 持有數量： 5
+折價券 折價100元 x 1 張，使用成功
+
+折價券 折價100元 x 1 張，使用者 (UId: 9527) 持有數量： 4
+折價券 折價100元 x 1 張，使用成功
+
+折價券 消費75折 x 1 張，使用者 (UId: 9527) 持有數量： 5
+折價券 消費75折 x 1 張，使用成功
+
+--------------------------------------
+
+訂單成功！
+
+使用者(UId:9527) 訂單內容物如下：
+
+【箱購】 柔芙輕巧包抽取式衛生紙 120抽x20包x4袋 NT$580.00
+【箱購】 柔芙輕巧包抽取式衛生紙 120抽x20包x4袋 NT$580.00
+【箱購】 柔芙輕巧包抽取式衛生紙 120抽x20包x4袋 NT$580.00
+ 智利富士蘋果 135g NT$14.00
+ 智利富士蘋果 135g NT$14.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【預購】 頂級愛文芒果禮盒  (約1.6kg/盒) NT$468.00
+【折價券】 折價100元 消費滿1000元 -NT$100.00
+【折價券】 折價100元 消費滿1000元 -NT$100.00
+【折價券】 消費75折 不限金額 -NT$977.00
+總金額：2931
+
+======================================
+
+|　　　　　　使用者 |　　　　　　　　　　　名稱 |        數量 |
+|            庫存 |　　柔芙輕巧包抽取式衛生紙 |          2 |
+|            庫存 |　　　　　　　智利富士蘋果 |          3 |
+|            庫存 |　　　　　頂級愛文芒果禮盒 |          0 |
+|　 　UId: (9527) |               消費75折 |          4 |
+|　　 UId: (9527) | 　　　        折價100元 |          3 |
+```
+
+由於有 `ISellable.Priority` 來取決優先序，顧加入購物車的先後順序並不影響結果。
+另外 `Program.cs` 中也有另外 3 個 TestCase ，有興趣也可以直接執行看看。
+
+---
+
+以上，是我對於交易的抽象化設計的做法
+
+相對於直接參考 **Andrew** 的作法
+
+我選擇以我最熟悉的做法來嘗試這項設計，讓 **Andrew** 可以更直接的知道我目前的程度大概在哪裡
+
+若 **Andrew** 如果有時間的話，還請不吝於提點此項做法有哪裡需要再改進的，或是在未來可能會遇到甚麼樣的問題。
+
+最後，再次感謝 **Andrew** 於面試時提供此疑問並邀請我進行實作
+
+在討論與實作的過程中都是不斷的反思與整理過去經驗，受益良多。
+
+Jack Huang
 
 
