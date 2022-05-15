@@ -30,43 +30,174 @@
 
 具體實作內容如下：
 
+`ISellable` 定義
 ```C#
 
-public interface ISellable {
-	int PId { get; set; } 
-	string Name { get; set; }
-	string Description { get; set; }
-	string Tag { get; set; }
-	void Buy(User user, Cart cart, IDataBase db);
-	bool CanBuy(User user, Cart cart, IDataBase db);
-	void Discard(User user, Cart cart, IDataBase db);
+ppublic interface ISellable {
+    int PId { get; set; }               // 元數據
+    string Name { get; set; }           // 元數據
+    string Description { get; set; }    // 元數據
+    string Tag { get; set; }            // 元數據
+    int Price { get; set; }             // 元數據
+    int Priority { get; set; }          // 元數據
+
+    void Buy(User user, Cart cart, IDataBase db);      // 行為：購買(減少庫存)
+    bool CanBuy(User user, Cart cart, IDataBase db);   // 行為：檢查(檢查庫存)
+    void Discard(User user, Cart cart, IDataBase db);  // 行為：取消(庫存回朔)
 }
 
 ```
 
+商品 `Product` 實作
 ```C#
 
 public class Product : ISellable {
-	public int PId { get; set; } 
-	public string Name { get; set; }
-	public string Description { get; set; }
-	public string Tag { get; set; }
+    public int PId { get; set; }
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public string Tag { get; set; }
+    public int Price { get; set; }
+    public int Priority { get; set; }
 
-	public Product(int PId, IDataBase db) {
-		(Name, Description, Tag) = db.GetMetadata(PId);
+    public Product(int pId, IDataBase db) {
+        PId = pId;
+        (Name, Description, Tag, Price, Priority) = db.GetMetadata(PId);
+    }
+
+    public void Buy(User user, Cart cart, IDataBase db) {
+        db.Delete(User.Inventory, PId, 1);
+        Console.WriteLine($"商品 {Name} x 1 件，購買成功");
+    }
+
+    public bool CanBuy(User user, Cart cart, IDataBase db) {
+        int remaining = db.SearchCount(User.Inventory, PId);
+        Console.WriteLine();
+        Console.WriteLine($"商品 {Name} x 1 件，存貨數量： {remaining}");
+        if (remaining - 1 < 0) {
+            Console.WriteLine($"商品 {Name} 存貨不足");
+            return false;
+        }
+        return true;
+    }
+
+    public void Discard(User user, Cart cart, IDataBase db) {
+        db.Insert(User.Inventory, PId, 1);
+        Console.WriteLine($"商品 {Name} x 1 件，取消購買");
+    }
+}
+
+```
+
+折價券(打折) `CouponNPercentOff` 實作
+```C#
+
+public class CouponNPercentOff : ISellable {
+    public int PId { get; set; }
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public string Tag { get; set; }
+    public int Price { get; set; }
+    public int Priority { get; set; }
+
+    private int percentage;
+
+    public CouponNPercentOff(int pId, IDataBase db) {
+        PId = pId;
+        (Name, Description, Tag, Price, Priority) = db.GetMetadata(PId);
+        if (db.GetCouponInfo(pId) is int p)
+            percentage = p;
+        else
+            throw new ArgumentNullException(nameof(percentage));
+    }
+
+    public void Buy(User user, Cart cart, IDataBase db) {
+        db.Delete(user, PId, 1);
+        var total_price = cart.Items.Select(item => item.Price).Sum();
+        Price = -(int)Math.Floor(total_price * (1 - percentage / 100d));
+        Console.WriteLine($"折價券 {Name} x 1 張，使用成功");
+    }
+
+    public bool CanBuy(User user, Cart cart, IDataBase db) {
+        int remaining = db.SearchCount(user, PId);
+        Console.WriteLine();
+        Console.WriteLine($"折價券 {Name} x 1 張，使用者 (UId: {user.UId}) 持有數量： {remaining}");
+        if (remaining - 1 < 0) {
+            Console.WriteLine($"折價券 {Name} 使用者持有數量不足");
+            return false;
+        }
+        return true;
+    }
+
+    public void Discard(User user, Cart cart, IDataBase db) {
+        db.Insert(user, PId, 1);
+        Price = 0;
+        Console.WriteLine($"折價券 {Name} x 1 張，取消使用");
+    }
+}
+
+```
+
+資料庫介面 `IDataBase`
+```C#
+
+public interface IDataBase {
+	void Insert(User user, int pId, int amount);
+	void Delete(User user, int pId, int amount);
+	int SearchCount(User user, int pId);
+	(string, string, string, int, int) GetMetadata(int pId);
+	object GetCouponInfo(int pId);
+}
+
+```
+
+資料庫部分我用 `Dictionary` 來作為簡單的 `table` ：
+```C#
+
+public class SimpleDB : IDataBase {
+	public const int TISSUE_ID = 1;
+	public const int APPLE_ID = 2;
+	public const int MANGO_ID = 3;
+	public const int COUPON_75_OFF_ID = 4;
+
+	public const int PRODUCT_PRIORITY = -1;
+
+	public static readonly int[] InventoryProducts = new int[] { TISSUE_ID, APPLE_ID, MANGO_ID, };
+	public static readonly int[] UserCoupons = new int[] { COUPON_75_OFF_ID };
+
+	private int pk = 0;
+	private Dictionary<int, (User, int, int)> records = new();
+	private Dictionary<int, (string, string, string, int, int)> product_table = new() {
+		[TISSUE_ID] = ("柔芙輕巧包抽取式衛生紙", "120抽x20包x4袋", "【箱購】", 580, PRODUCT_PRIORITY),
+		[APPLE_ID] = ("智利富士蘋果", "135g", "", 14, PRODUCT_PRIORITY),
+		[MANGO_ID] = ("頂級愛文芒果禮盒 ", "(約1.6kg/盒)", "【預購】", 468, PRODUCT_PRIORITY),
+		[COUPON_75_OFF_ID] = ("消費75折", "不限金額", "【折價券】", 0, 1),
+	};
+	private Dictionary<int, object> coupon_info = new() {
+		[COUPON_75_OFF_ID] = 75,
+	};
+
+	public void Insert(User user, int pId, int amount) {
+		records.Add(++pk, (user, pId, amount));
 	}
 
-	public void Buy(User user, Cart cart, IDataBase db) {
-		db.Delete(User.Inventory, PId, 1);
+	public void Delete(User user, int pId, int amount) {
+		var remaining = records.Values.Where(r => r.Item1 == user && r.Item2 == pId).Select(r => r.Item3).Sum();
+		if (remaining - amount < 0)
+			throw new InvalidOperationException();
+		records.Add(++pk, (user, pId, -amount));
 	}
 
-	public bool CanBuy(User user, Cart cart, IDataBase db) {
-		int remaining = db.SearchCount(User.Inventory, PId);
-		return remaining - 1 >= 0;
+	public int SearchCount(User user, int pId) {
+		return records.Values.Where(r => r.Item1 == user && r.Item2 == pId).Select(r => r.Item3).Sum();
 	}
 
-	public void Discard(User user, Cart cart, IDataBase db) {
-		db.Insert(User.Inventory, PId, 1);
+	public (string, string, string, int, int) GetMetadata(int pId) {
+		return product_table[pId];
+	}
+
+	public object GetCouponInfo(int pId) {
+		return coupon_info[pId];
 	}
 }
+
 ```
