@@ -370,15 +370,15 @@ cart.AddItem(new CouponNPercentOff(SimpleDB.COUPON_75_OFF_ID, db));
 cart.AddItem(new CouponRebateEverySpend(SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, db));
 cart.AddItem(new CouponRebateEverySpend(SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, db));
 
-API.ShowInventory(user, db);
+ShowInventory(user, db);
 
-API.ShowCart(user, cart, db);
+ShowCart(user, cart, db);
 
 var order = API.PlaceOrder(user, cart, db);
 
-API.ShowOrder(user, order, db);
+ShowOrder(user, order, db);
 
-API.ShowInventory(user, db);
+ShowInventory(user, db);
 
 ```
 
@@ -484,6 +484,7 @@ API.ShowInventory(user, db);
 ```
 
 由於有 `ISellable.Priority` 來取決優先序，顧加入購物車的先後順序並不影響結果。
+
 另外 `Program.cs` 中也有另外 3 個 TestCase ，有興趣也可以直接執行看看。
 
 ---
