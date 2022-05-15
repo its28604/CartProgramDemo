@@ -64,7 +64,7 @@ public class CouponNPercentOff : ISellable
     public int Price { get; set; }
     public int Priority { get; set; }
 
-    private int percentage;
+    private readonly int percentage;
 
     public CouponNPercentOff(int pId, IDataBase db)
     {
@@ -105,7 +105,13 @@ public class CouponNPercentOff : ISellable
     }
 }
 
-public class CouponDiscountWhenAbove : ISellable
+internal interface IRebateEverySpend
+{
+    public int EverySpend { get; set; }
+    public bool Used { get; set; }
+}
+
+public class CouponRebateEverySpend : ISellable, IRebateEverySpend
 {
     public int PId { get; set; }
     public string Name { get; set; }
@@ -114,23 +120,27 @@ public class CouponDiscountWhenAbove : ISellable
     public int Price { get; set; }
     public int Priority { get; set; }
 
-    private int discount;
-    private int abovePrice;
+    public int EverySpend { get; set; }
+    public bool Used { get; set; }
 
-    public CouponDiscountWhenAbove(int pId, IDataBase db)
+    private readonly int rebate = 0;
+
+    public CouponRebateEverySpend(int pId, IDataBase db)
     {
         PId = pId;
         (Name, Description, Tag, Price, Priority) = db.GetMetadata(PId);
-        if (db.GetCouponInfo(pId) is int p)
-            (discount, abovePrice) = p;
+
+        if (db.GetCouponInfo(pId) is ValueTuple<int, int> p)
+            (EverySpend, rebate) = p;
         else
-            throw new ArgumentNullException(nameof(discount));
+            throw new ArgumentNullException(nameof(rebate));
     }
 
     public void Buy(User user, Cart cart, IDataBase db)
     {
         db.Delete(user, PId, 1);
-        Price = -discount;
+        Price = -rebate;
+        Used = true;
         Console.WriteLine($"折價券 {Name} x 1 張，使用成功");
     }
 
@@ -144,6 +154,23 @@ public class CouponDiscountWhenAbove : ISellable
             Console.WriteLine($"折價券 {Name} 使用者持有數量不足");
             return false;
         }
+
+        int total_spend = 
+            cart.Items.Where(item => item is not IRebateEverySpend)
+                      .Select(item => item.Price)
+                      .Sum();
+        int total_rebate_needed =
+            cart.Items.Where(item => item is IRebateEverySpend everySpend && everySpend.Used)
+                      .Cast<IRebateEverySpend>()
+                      .Select(item => item.EverySpend)
+                      .Sum();
+        int spend_remaining = total_spend - total_rebate_needed;
+        if (spend_remaining < EverySpend)
+        {
+            Console.WriteLine($"折價券 {Name} 條件不符，尚需 {EverySpend - spend_remaining} 元");
+            return false;
+        }
+
         return true;
     }
 
@@ -151,6 +178,7 @@ public class CouponDiscountWhenAbove : ISellable
     {
         db.Insert(user, PId, 1);
         Price = 0;
+        Used = false;
         Console.WriteLine($"折價券 {Name} x 1 張，取消使用");
     }
 }

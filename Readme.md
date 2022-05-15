@@ -206,7 +206,7 @@ public class SimpleDB : IDataBase {
 
 但是如果再稍微多考慮一些就會發現上面的設計有可能不太夠
 
-例如：`滿千折百`，`買一送一`...等，需要有多張折價券交互進行比對的情況
+>例如：`滿千折百`，`買一送一`...等，需要有多張折價券交互進行比對的情況
 
 我的考量是：折價券的互相綁定，通常是屬於同一類別的會無法交互使用。
 
@@ -218,5 +218,86 @@ public class SimpleDB : IDataBase {
 
 剩下總金額仍有超過 1000 元即可享有優惠（假設 `滿千折百` 的優先序較高）
 
-故我選擇用 `Attribute` 判斷 `滿千折百` 是否符合使用資格
+故我選擇用 `IRebateEverySpend` 來作為 `滿X折X` 這類的折價券是否符合使用資格
+
+```C#
+
+internal interface IRebateEverySpend {
+    public int EverySpend { get; set; }
+    public bool Used { get; set; }
+}
+
+```
+
+`CouponRebateEverySpend(滿千折百)` 實作
+
+```C#
+
+public class CouponRebateEverySpend : ISellable, IRebateEverySpend {
+    public int PId { get; set; }
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public string Tag { get; set; }
+    public int Price { get; set; }
+    public int Priority { get; set; }
+
+    public int EverySpend { get; set; }
+    public bool Used { get; set; }
+
+    private readonly int rebate = 0;
+
+    public CouponRebateEverySpend(int pId, IDataBase db) {
+        PId = pId;
+        (Name, Description, Tag, Price, Priority) = db.GetMetadata(PId);
+
+        if (db.GetCouponInfo(pId) is ValueTuple<int, int> p)
+            (EverySpend, rebate) = p;
+        else
+            throw new ArgumentNullException(nameof(rebate));
+    }
+
+    public void Buy(User user, Cart cart, IDataBase db) {
+        db.Delete(user, PId, 1);
+        Price = -rebate;
+        Used = true;
+        Console.WriteLine($"折價券 {Name} x 1 張，使用成功");
+    }
+
+    public bool CanBuy(User user, Cart cart, IDataBase db) {
+        int remaining = db.SearchCount(user, PId);
+        Console.WriteLine();
+        Console.WriteLine($"折價券 {Name} x 1 張，使用者 (UId: {user.UId}) 持有數量： {remaining}");
+        if (remaining - 1 < 0) {
+            Console.WriteLine($"折價券 {Name} 使用者持有數量不足");
+            return false;
+        }
+
+        int total_spend = 
+            cart.Items.Where(item => item is not IRebateEverySpend)
+                      .Select(item => item.Price)
+                      .Sum();
+        int total_rebate_needed =
+            cart.Items.Where(item => item is IRebateEverySpend everySpend && everySpend.Used)
+                      .Cast<IRebateEverySpend>()
+                      .Select(item => item.EverySpend)
+                      .Sum();
+        int spend_remaining = total_spend - total_rebate_needed;
+        if (spend_remaining < EverySpend) {
+            Console.WriteLine($"折價券 {Name} 條件不符，尚需 {EverySpend - spend_remaining} 元");
+            return false;
+        }
+
+        return true;
+    }
+
+    public void Discard(User user, Cart cart, IDataBase db) {
+        db.Insert(user, PId, 1);
+        Price = 0;
+        Used = false;
+        Console.WriteLine($"折價券 {Name} x 1 張，取消使用");
+    }
+}
+
+```
+
 

@@ -5,10 +5,11 @@ namespace CartProgram.UnitTests;
 
 public class CartProgramTests
 {
-    private readonly User User_A = new User(9527);
+    private readonly User USER_A = new User(9527);
 
     [Fact]
-    public void IDataBaseTest() {
+    public void IDataBaseTest()
+    {
         // Arrange
         IDataBase db = new SimpleDB();
         db.Insert(User.Inventory, SimpleDB.TISSUE_ID, 5);
@@ -18,7 +19,8 @@ public class CartProgramTests
     }
 
     [Fact]
-    public void PlaceOrder() {
+    public void PlaceOrder()
+    {
         // Arrange
         IDataBase db = new SimpleDB();
         db.Insert(User.Inventory, SimpleDB.TISSUE_ID, 5);
@@ -28,18 +30,19 @@ public class CartProgramTests
         cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
 
         // Act
-        var order = API.PlaceOrder(User_A, cart, db);
+        var order = API.PlaceOrder(USER_A, cart, db);
 
         Assert.Equal(3, db.SearchCount(User.Inventory, SimpleDB.TISSUE_ID));
         Assert.Equal(OrderState.Success, order.State);
     }
 
     [Fact]
-    public void PlaceOrder_WithCouponPercentOff() {
+    public void PlaceOrder_WithCouponPercentOff()
+    {
         // Arrange
         IDataBase db = new SimpleDB();
         db.Insert(User.Inventory, SimpleDB.TISSUE_ID, 5);
-        db.Insert(User_A, SimpleDB.COUPON_75_OFF_ID, 1);
+        db.Insert(USER_A, SimpleDB.COUPON_75_OFF_ID, 1);
 
         Cart cart = new Cart();
         cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
@@ -47,7 +50,7 @@ public class CartProgramTests
         cart.AddItem(new CouponNPercentOff(SimpleDB.COUPON_75_OFF_ID, db));
 
         // Act
-        var order = API.PlaceOrder(User_A, cart, db);
+        var order = API.PlaceOrder(USER_A, cart, db);
 
         Assert.Equal(3, db.SearchCount(User.Inventory, SimpleDB.TISSUE_ID));
         Assert.Equal(OrderState.Success, order.State);
@@ -59,17 +62,39 @@ public class CartProgramTests
         // Arrange
         IDataBase db = new SimpleDB();
         db.Insert(User.Inventory, SimpleDB.TISSUE_ID, 5);
-        db.Insert(User_A, SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, 1);
+        db.Insert(USER_A, SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, 1);
 
         Cart cart = new Cart();
         cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
         cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
-        cart.AddItem(new CouponDiscountWhenAbove(SimpleDB.COUPON_ABOVE_1000_DISCOUNT_100_ID, db));
+        cart.AddItem(new CouponRebateEverySpend(SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, db));
 
         // Act
-        var order = API.PlaceOrder(User_A, cart, db);
+        var order = API.PlaceOrder(USER_A, cart, db);
 
         Assert.Equal(3, db.SearchCount(User.Inventory, SimpleDB.TISSUE_ID));
         Assert.Equal(OrderState.Success, order.State);
+    }
+
+    [Fact]
+    public void PlaceOrder_WithCouponDiscount_WhenNotEnough()
+    {
+        // Arrange
+        IDataBase db = new SimpleDB();
+        db.Insert(User.Inventory, SimpleDB.TISSUE_ID, 5);
+        db.Insert(USER_A, SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, 2);
+
+        Cart cart = new Cart();
+        cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
+        cart.AddItem(new Product(SimpleDB.TISSUE_ID, db));
+        cart.AddItem(new CouponRebateEverySpend(SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, db));
+        cart.AddItem(new CouponRebateEverySpend(SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID, db));
+
+        // Act
+        var order = API.PlaceOrder(USER_A, cart, db);
+
+        Assert.Equal(5, db.SearchCount(User.Inventory, SimpleDB.TISSUE_ID));
+        Assert.Equal(2, db.SearchCount(USER_A, SimpleDB.COUPON_REBATE_100_FOREVERY_1000_SPEND_ID));
+        Assert.Equal(OrderState.Failure, order.State);
     }
 }

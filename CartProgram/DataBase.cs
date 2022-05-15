@@ -13,12 +13,12 @@ public class SimpleDB : IDataBase {
 	public const int APPLE_ID = 2;
 	public const int MANGO_ID = 3;
 	public const int COUPON_75_OFF_ID = 4;
-	public const int COUPON_ABOVE_1000_DISCOUNT_100_ID = 5;
+	public const int COUPON_REBATE_100_FOREVERY_1000_SPEND_ID = 5;
 
 	public const int PRODUCT_PRIORITY = -1;
 
 	public static readonly int[] InventoryProducts = new int[] { TISSUE_ID, APPLE_ID, MANGO_ID, };
-	public static readonly int[] UserCoupons = new int[] { COUPON_75_OFF_ID, COUPON_ABOVE_1000_DISCOUNT_100_ID };
+	public static readonly int[] UserCoupons = new int[] { COUPON_75_OFF_ID, COUPON_REBATE_100_FOREVERY_1000_SPEND_ID };
 
 	private int pk = 0;
 	private Dictionary<int, (User, int, int)> records = new();
@@ -26,12 +26,12 @@ public class SimpleDB : IDataBase {
 		[TISSUE_ID] = ("柔芙輕巧包抽取式衛生紙", "120抽x20包x4袋", "【箱購】", 580, PRODUCT_PRIORITY),
 		[APPLE_ID] = ("智利富士蘋果", "135g", "", 14, PRODUCT_PRIORITY),
 		[MANGO_ID] = ("頂級愛文芒果禮盒 ", "(約1.6kg/盒)", "【預購】", 468, PRODUCT_PRIORITY),
-		[COUPON_75_OFF_ID] = ("消費75折", "不限金額", "【折價券】", 0, 1),
-		[COUPON_ABOVE_1000_DISCOUNT_100_ID] = ("折價100元", "消費滿1000元", "【折價券】", 0, 2),
+		[COUPON_75_OFF_ID] = ("消費75折", "不限金額", "【折價券】", 0, 2),
+		[COUPON_REBATE_100_FOREVERY_1000_SPEND_ID] = ("折價100元", "消費滿1000元", "【折價券】", 0, 1),
 	};
 	private Dictionary<int, object> coupon_info = new() {
 		[COUPON_75_OFF_ID] = 75,
-		[COUPON_ABOVE_1000_DISCOUNT_100_ID] = (100, 1000),
+		[COUPON_REBATE_100_FOREVERY_1000_SPEND_ID] = (1000, 100),
 	};
 
 	public void Insert(User user, int pId, int amount) {
